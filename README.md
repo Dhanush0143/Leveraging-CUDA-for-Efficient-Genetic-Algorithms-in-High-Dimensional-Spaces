@@ -1,191 +1,211 @@
-# Leveraging-CUDA-for-Efficient-Genetic-Algorithms-in-High-Dimensional-Spaces
+# Exp 3 Sobel edge detection filter using CUDA to enhance the performance of image processing tasks
 
-Introduction
-In the field of optimization, Genetic Algorithms (GAs) are a powerful class of evolutionary algorithms inspired by the principles of natural selection. They are particularly effective in solving complex problems where traditional optimization techniques may struggle. This project aims to implement a CUDA-accelerated Genetic Algorithm to optimize high-dimensional functions efficiently, leveraging the parallel processing capabilities of modern GPUs.
+### ENTER YOUR NAME: DHANUSH P
+### REGISTER NO: 212223230042
 
-The workflow of this project can be summarized in the following steps:
+## Background: 
+  - The Sobel operator is a popular edge detection method that computes the gradient of the image intensity at each pixel. It uses convolution with two kernels to determine the gradient in both the x and y directions. 
+  - This lab focuses on utilizing CUDA to parallelize the Sobel filter implementation for efficient processing of images.
 
-Initialization: A population of candidate solutions (individuals) is generated randomly within a defined search space. Each individual represents a potential solution to the optimization problem. The size of the population and the number of dimensions for each individual can be adjusted based on the complexity of the problem.
+## Aim
+To utilize CUDA to parallelize the Sobel filter implementation for efficient processing of images.
 
-Fitness Evaluation: The fitness of each individual in the population is evaluated using a fitness function. In this project, a high-dimensional sphere function is utilized as the optimization objective, where the goal is to minimize the function value. This evaluation process is performed in parallel using CUDA kernels, allowing for significant speedup by leveraging the GPU’s computational power.
+## Tools Required:
+- A system with CUDA-capable GPU.
+- CUDA Toolkit and OpenCV installed.
 
-Selection: Individuals are selected from the population based on their fitness values. The selection process favors better-performing individuals, ensuring that their genetic information is passed to the next generation. This mimics natural selection, where the fittest individuals are more likely to reproduce.
+## Procedure
 
-Crossover: The crossover operator combines pairs of selected individuals to create new offspring. This process introduces genetic diversity and allows for the exploration of new regions in the search space. The crossover rate can be adjusted to balance exploration and exploitation in the optimization process.
+1. **Environment Setup**:
+   - Ensure that CUDA and OpenCV are installed and set up correctly on your system.
+   - Have a sample image (`images.jpg`) available in the correct directory to use as input.
 
-Mutation: To further enhance genetic diversity and prevent premature convergence, mutation is applied to the offspring. Random changes are introduced to some individuals, ensuring a broader search of the solution space. The mutation rate can be fine-tuned based on the problem characteristics.
+2. **Load Image and Convert to Grayscale**:
+   - Use OpenCV to read the input image in color mode.
+   - Convert the image to grayscale as the Sobel operator works on single-channel images.
 
-Iteration: The process of evaluating fitness, selecting individuals, performing crossover, and mutating continues over multiple generations. Each generation aims to produce a population with better fitness values than the previous one. The best fitness values across generations are recorded for analysis.
+3. **Initialize and Allocate Memory**:
+   - Determine the width and height of the grayscale image.
+   - Allocate memory on both the host (CPU) and device (GPU) for the image data. Allocate device memory using `cudaMalloc` and check for successful allocation with `checkCudaErrors`.
 
-Results Analysis: The performance of the Genetic Algorithm is evaluated by plotting the best fitness values over generations. Insights are drawn from the visualizations to assess convergence behavior and optimization efficiency. Parameter adjustments can be made to improve the algorithm’s performance based on these insights.
+4. **Performance Analysis Function**:
+   - Define `analyzePerformance`, a function to test the CUDA kernel with different image sizes and block configurations.
+   - For each specified image size (e.g., 256x256, 512x512, 1024x1024), set up the grid and block dimensions.
+   - Launch the Sobel kernel using different block sizes (8x8, 16x16, 32x32) to evaluate the performance impact of each configuration. Record the execution time using CUDA events.
 
-By utilizing CUDA for parallel processing, this project aims to enhance the speed and efficiency of the Genetic Algorithm, making it suitable for tackling high-dimensional optimization problems. This approach not only demonstrates the capabilities of GPU acceleration but also provides a foundation for further exploration into more complex optimization challenges.
+5. **Run Sobel Filter on Original Image**:
+   - Set up the grid and block dimensions for the input image based on a 16x16 block size.
+   - Use CUDA events to measure execution time for the Sobel filter applied to the original image.
+   - Copy the resulting data from device memory to host memory.
 
-**Step 1: Set Up Google Colab for CUDA
-Enable GPU Support:**
-Go to Runtime in the menu.
-Select Change runtime type.
-In the "Hardware accelerator" dropdown, choose GPU.
-Click Save.
-**Step 2: Install CUDA Toolkit**
-You will need to install the necessary CUDA toolkit and dependencies in your Colab environment. Add and run the following code in a new cell:
-**Step 3: Write GA Code **
-%%writefile ga_cuda.cu
-#include <iostream>
-#include <curand.h>
-#include <curand_kernel.h>
-#include <fstream>
+6. **Save CUDA Output Image**:
+   - Convert the processed image data on the host back to an OpenCV `Mat` object.
+   - Save the CUDA-processed output image as `output_sobel_cuda.jpeg`.
 
-// Function to optimize (High-Dimensional Sphere Function)
-__device__ float fitness_function(float* individual, int dimensions) {
-    float fitness = 0.0f;
-    for (int i = 0; i < dimensions; ++i) {
-        fitness += individual[i] * individual[i];  // Example: Sphere function
-    }
-    return fitness;
-}
+7. **Compare with OpenCV Sobel Filter**:
+   - For comparison, apply the OpenCV Sobel filter to the grayscale image on the CPU.
+   - Measure the execution time using `std::chrono` for the CPU-based approach.
+   - Save the OpenCV output as `output_sobel_opencv.jpeg`.
 
-// CUDA kernel to evaluate the fitness of each individual in the population
-__global__ void evaluate_population(float* population, float* fitness_values, int population_size, int dimensions) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < population_size) {
-        fitness_values[idx] = fitness_function(&population[idx * dimensions], dimensions);
-    }
-}
+8. **Display Results**:
+   - Print the input and output image dimensions.
+   - Print the execution time for the CUDA Sobel filter and the CPU (OpenCV) Sobel filter to compare performance.
+   - Display the breakdown of times for each block size and image size tested.
 
-// CUDA kernel for crossover
-__global__ void crossover(float* population, float* new_population, int population_size, int dimensions, float crossover_rate, curandState* rand_states) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < population_size) {
-        int parent1_idx = idx * 2;
-        int parent2_idx = parent1_idx + 1;
+9. **Cleanup**:
+   - Free all dynamically allocated memory on the host and device to avoid memory leaks.
+   - Destroy CUDA events created for timing.
 
-        for (int i = 0; i < dimensions; ++i) {
-            float r = curand_uniform(&rand_states[idx]);
-            if (r < crossover_rate) {
-                new_population[idx * dimensions + i] = 0.5f * (population[parent1_idx * dimensions + i] + population[parent2_idx * dimensions + i]);
-            } else {
-                new_population[idx * dimensions + i] = population[parent1_idx * dimensions + i];
+## Program
+
+```cpp
+%%writefile sobel_cuda.cu
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <cuda_runtime.h>
+#include <opencv2/opencv.hpp>
+#include <chrono>
+
+using namespace cv;
+
+__global__ void sobelFilter(unsigned char *srcImage, unsigned char *dstImage,
+                            unsigned int width, unsigned int height) {
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= 1 && x < width - 1 && y >= 1 && y < height - 1) {
+        int Gx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+        int Gy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
+
+        int sumX = 0, sumY = 0;
+
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                unsigned char pixel = srcImage[(y + i) * width + (x + j)];
+                sumX += pixel * Gx[i + 1][j + 1];
+                sumY += pixel * Gy[i + 1][j + 1];
             }
         }
+
+        int magnitude = sqrtf(float(sumX * sumX + sumY * sumY));
+        magnitude = min(max(magnitude, 0), 255);
+        dstImage[y * width + x] = (unsigned char)magnitude;
     }
 }
 
-// CUDA kernel for mutation
-__global__ void mutate(float* population, int population_size, int dimensions, float mutation_rate, curandState* rand_states) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < population_size) {
-        for (int i = 0; i < dimensions; ++i) {
-            float r = curand_uniform(&rand_states[idx]);
-            if (r < mutation_rate) {
-                population[idx * dimensions + i] += curand_normal(&rand_states[idx]) * 0.1f;
-            }
-        }
-    }
-}
-
-// CUDA kernel to initialize random states
-__global__ void init_rand_states(curandState* rand_states, int population_size, unsigned long seed) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < population_size) {
-        curand_init(seed, idx, 0, &rand_states[idx]);
+void checkCudaErrors(cudaError_t r) {
+    if (r != cudaSuccess) {
+        fprintf(stderr, "CUDA Error: %s\n", cudaGetErrorString(r));
+        exit(EXIT_FAILURE);
     }
 }
 
 int main() {
-    const int population_size = 1024;
-    const int dimensions = 100;  // High-dimensional space
-    const int generations = 1000;
-    const float crossover_rate = 0.7f;
-    const float mutation_rate = 0.01f;
 
-    // Allocate memory for the population and fitness values
-    float* population;
-    float* new_population;
-    float* fitness_values;
-    curandState* rand_states;
-
-    cudaMalloc(&population, population_size * dimensions * sizeof(float));
-    cudaMalloc(&new_population, population_size * dimensions * sizeof(float));
-    cudaMalloc(&fitness_values, population_size * sizeof(float));
-    cudaMalloc(&rand_states, population_size * sizeof(curandState));
-
-    // Initialize random states for CUDA
-    init_rand_states<<<(population_size + 255) / 256, 256>>>(rand_states, population_size, time(0));
-
-    // Open file to save fitness values in CSV format
-    std::ofstream fitnessFile("/content/fitness_values.csv");
-    fitnessFile << "Generation,Best Fitness\n"; // CSV header
-
-    // Main Genetic Algorithm loop
-    for (int gen = 0; gen < generations; ++gen) {
-        // Evaluate the fitness of the population
-        evaluate_population<<<(population_size + 255) / 256, 256>>>(population, fitness_values, population_size, dimensions);
-        cudaDeviceSynchronize();
-
-        // Perform crossover
-        crossover<<<(population_size + 255) / 256, 256>>>(population, new_population, population_size / 2, dimensions, crossover_rate, rand_states);
-        cudaDeviceSynchronize();
-
-        // Mutate the new population
-        mutate<<<(population_size + 255) / 256, 256>>>(new_population, population_size, dimensions, mutation_rate, rand_states);
-        cudaDeviceSynchronize();
-
-        // Write the best fitness to the file
-        float best_fitness = INFINITY;
-        float* h_fitness_values = new float[population_size];
-        cudaMemcpy(h_fitness_values, fitness_values, population_size * sizeof(float), cudaMemcpyDeviceToHost);
-        
-        for (int i = 0; i < population_size; ++i) {
-            if (h_fitness_values[i] < best_fitness) {
-                best_fitness = h_fitness_values[i];
-            }
-        }
-
-        fitnessFile << gen << "," << best_fitness << "\n"; // Write generation and best fitness
-        delete[] h_fitness_values;
-
-        // Swap populations
-        std::swap(population, new_population);
+    Mat image = imread("creative2.jpg", IMREAD_COLOR);
+    if (image.empty()) {
+        printf("Error: Image not found at /content/image.jpg\n");
+        return -1;
     }
 
-    // Cleanup
-    fitnessFile.close();
-    cudaFree(population);
-    cudaFree(new_population);
-    cudaFree(fitness_values);
-    cudaFree(rand_states);
+    Mat grayImage;
+    cvtColor(image, grayImage, COLOR_BGR2GRAY);
+
+    int width = grayImage.cols;
+    int height = grayImage.rows;
+    size_t imageSize = width * height * sizeof(unsigned char);
+
+    unsigned char *h_outputImage = (unsigned char *)malloc(imageSize);
+
+    unsigned char *d_inputImage, *d_outputImage;
+    checkCudaErrors(cudaMalloc(&d_inputImage, imageSize));
+    checkCudaErrors(cudaMalloc(&d_outputImage, imageSize));
+    checkCudaErrors(cudaMemcpy(d_inputImage, grayImage.data, imageSize, cudaMemcpyHostToDevice));
+
+    // Kernel configuration
+    dim3 blockDim(16, 16);
+    dim3 gridSize((width + blockDim.x - 1) / blockDim.x,
+                  (height + blockDim.y - 1) / blockDim.y);
+
+    // CUDA timing
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+    sobelFilter<<<gridSize, blockDim>>>(d_inputImage, d_outputImage, width, height);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    float cudaTime = 0;
+    cudaEventElapsedTime(&cudaTime, start, stop);
+
+    checkCudaErrors(cudaMemcpy(h_outputImage, d_outputImage, imageSize, cudaMemcpyDeviceToHost));
+
+    Mat outputImage(height, width, CV_8UC1, h_outputImage);
+    imwrite("/content/output_sobel_cuda.jpg", outputImage);
+
+    // OpenCV Sobel timing
+    Mat opencvOutput;
+    auto startCpu = std::chrono::high_resolution_clock::now();
+    Sobel(grayImage, opencvOutput, CV_8U, 1, 1, 3);
+    auto endCpu = std::chrono::high_resolution_clock::now();
+    double cpuTime = std::chrono::duration<double, std::milli>(endCpu - startCpu).count();
+
+    imwrite("/content/output_sobel_opencv.jpg", opencvOutput);
+
+    printf("Image Size: %d x %d\n", width, height);
+    printf("CUDA Sobel Time: %f ms\n", cudaTime);
+    printf("OpenCV Sobel Time: %f ms\n", cpuTime);
+
+    cudaFree(d_inputImage);
+    cudaFree(d_outputImage);
+    free(h_outputImage);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     return 0;
 }
-**Step 4: Compile the CUDA Code**
-Run the following command in a new cell to compile the CUDA code:
+```
 
-!nvcc ga_cuda.cu -o ga_cuda
-**Step 5: Run the CUDA Executable**
-After compiling, run the following command to execute the program:
+## Output Explanation
 
-!./ga_cuda
-**Step 6: Check Output**
-Once the execution is complete, check the generated CSV file for fitness values. You can use the following command to list the files:
+| Original 	|  Output using Cuda |
+|:-:	|:-:	|
+| ![creative2](https://github.com/user-attachments/assets/4ebd5792-49d3-4302-8363-0948d56ea11d) | <img width="513" height="401" alt="image" src="https://github.com/user-attachments/assets/d2c51980-937b-4288-9ed7-e97578c7414c" /> |
 
-!ls /content/
+| Original 	|  Output using OpenCV |
+|:-:	|:-:	|
+| ![creative2](https://github.com/user-attachments/assets/161d1698-49cd-4808-8423-bb55aad3f4fb) | <img width="513" height="338" alt="image" src="https://github.com/user-attachments/assets/969b837c-a34f-45b5-a15b-e9f673de5663" /> |
 
-By visualizing these aspects of genetic algorithm's performance,developers can gain insights into its behavior, efficiency, and effectiveness. The chosen visualizations can also help communicate our results effectively to others, making it easier to understand the optimization process and outcomes.
+- **Sample Execution Results**:
+  - **CUDA Execution Times (Sobel filter) AND OpenCV Execution Time**
+  </br>
+<img width="250" height="56" alt="image" src="https://github.com/user-attachments/assets/bc42154f-6124-4fdf-9129-d7e53a82377c" />
+
+- **Graph Analysis**:
+  - Displayed a graph showing the relationship between image size, block size, and execution time.
+ </br>
+
+<img width="585" height="468" alt="image" src="https://github.com/user-attachments/assets/1cf9bb69-5174-4af7-99f7-abb590647d89" />
 
 
-**To adjust the parameters in CUDA Genetic Algorithm (GA) implementation and to reevaluate the performance after making these changes, follow the steps below.**
+## Answers to Questions
 
-Step 1: Adjust Parameters
-Population Size: You can increase or decrease the population size to see how it affects convergence. Larger populations may provide better exploration but will take more computation time.
-Crossover Rate: Modify the crossover rate to find a balance between exploration (high crossover rates) and exploitation (low crossover rates).
-Mutation Rate: Adjust the mutation rate to control how often individuals change. A higher mutation rate can introduce more diversity but might disrupt convergence.
-Generations: Change the number of generations based on how long you want to run the algorithm.
+1. **Challenges Implementing Sobel for Color Images**:
+   - Converting images to grayscale in the kernel increased complexity. Memory management and ensuring correct indexing for color to grayscale conversion required attention.
 
-**Example Workflow**
-Initial Run: Use the original parameters and save the results.
-Adjust Parameters: Change a specific parameter (e.g., increase population size).
-Re-run: Execute the modified code.
-Analyze and Compare: Evaluate the fitness values and plot the results. Look for improvements in the convergence rate and best fitness.
-Iterate: Continue adjusting parameters and reevaluating until you find the optimal configuration.
+2. **Influence of Block Size**:
+   - Smaller block sizes (e.g., 8x8) were efficient for smaller images but less so for larger ones, where larger blocks (e.g., 32x32) reduced overhead.
 
+3. **CUDA vs. CPU Output Differences**:
+   - The CUDA implementation was faster, with minor variations in edge sharpness due to rounding differences. CPU output took significantly more time than the GPU.
+
+4. **Optimization Suggestions**:
+   - Use shared memory in the CUDA kernel to reduce global memory access times.
+   - Experiment with adaptive block sizes for larger images.
+
+## Result
+Successfully implemented a CUDA-accelerated Sobel filter, demonstrating significant performance improvement over the CPU-based implementation, with an efficient parallelized approach for edge detection in image processing.
