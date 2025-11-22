@@ -1,4 +1,4 @@
-# Exp 3 Sobel edge detection filter using CUDA to enhance the performance of image processing tasks
+# Sobel edge detection filter using CUDA to enhance the performance of image processing tasks
 
 ### ENTER YOUR NAME: DHANUSH P
 ### REGISTER NO: 212223230042
