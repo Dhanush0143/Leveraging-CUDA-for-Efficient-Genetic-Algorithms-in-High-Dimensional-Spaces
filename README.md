@@ -8,7 +8,7 @@
   - This lab focuses on utilizing CUDA to parallelize the Sobel filter implementation for efficient processing of images.
 
 ## Aim
-To utilize CUDA to parallelize the Sobel filter implementation for efficient processing of images.
+To utilize CUDA to parallelize the Sobel filter implementation for efficient processing of images. 
 
 ## Tools Required:
 - A system with CUDA-capable GPU.
